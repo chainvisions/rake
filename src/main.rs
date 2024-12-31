@@ -10,6 +10,7 @@ use std::{
 use tiny_keccak::{Hasher, Keccak};
 
 const MAX_ITER_COUNT: u64 = 0xffffffffffff; // TODO: Temporarily until we handle the math better.
+const PREPOSITIONS: [&'static str; 8] = ["as", "of", "for", "by", "like", "in", "from", "into"];
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -17,7 +18,8 @@ struct Args {
         short = 'd',
         long,
         value_delimiter = ',',
-        help = "List of known words to use in an attempt to brute force a matching signature"
+        help = "List of known words to use in an attempt to brute force a matching signature",
+        required = true
     )]
     dictionary: Vec<String>,
     #[arg(
@@ -40,6 +42,21 @@ struct Args {
         help = "Enable to submit the matching signature to Openchain after a successful match"
     )]
     openchain: bool,
+    #[arg(
+        short = 'p',
+        long,
+        default_value = "false",
+        long_help = "Append a few common English prepositions (as, of, for, by, like, in, from, into) to the dictionary. Adds potential accuracy to brute forcing whilst adding some additional overhead cost due to additional combinations to sift through"
+    )]
+    prepositions: bool,
+}
+
+impl Args {
+    fn append_prepositions(&mut self) {
+        for prep in PREPOSITIONS.into_iter() {
+            self.dictionary.push(prep.to_string());
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize)]
@@ -48,7 +65,10 @@ struct OpenchainImportParams {
 }
 
 fn main() {
-    let args = Args::parse();
+    let mut args = Args::parse();
+    if args.prepositions {
+        args.append_prepositions();
+    }
     start_cracking(args);
 }
 
@@ -60,6 +80,7 @@ fn start_cracking(args: Args) {
     // Calculate total possibilities.
     //let num_possible = fact(u128::try_from(args.dictionary.len()).unwrap() * 2_u128);
     // TODO: Handle the above ^ math better
+    println!("Dictionary loaded: {:?}", args.dictionary);
     println!(
         "Iterating over {} total possibilities or factorial({})",
         0,

@@ -41,18 +41,26 @@ Found target function signature for 23b872dd: transferFrom(address,address,uint2
 ```
 ## CLI Usage
 ```
-Usage: rake [OPTIONS] --args <FUNC_ARGS>
+Usage: rake [OPTIONS] --dictionary <DICTIONARY> --args <FUNC_ARGS>
 
 Options:
   -d, --dictionary <DICTIONARY>
           List of known words to use in an attempt to brute force a matching signature
+
   -a, --args <FUNC_ARGS>
           Arguments of the function being brute forced, used for constructing a valid signature
+
   -m, --match-selector <MATCH_SELECTOR>
-          Selector to attempt to create a matching signature for [default: 00000000]
+          Selector to attempt to create a matching signature for
+          
+          [default: 00000000]
+
   -o, --openchain
           Enable to submit the matching signature to Openchain after a successful match
-  -h, --help
-          Print help
 
+  -p, --prepositions
+          Append a few common English prepositions (as, of, for, by, like, in, from, into) to the dictionary. Adds potential accuracy to brute forcing whilst adding some additional overhead cost due to additional combinations to sift through
+
+  -h, --help
+          Print help (see a summary with '-h')
 ```
