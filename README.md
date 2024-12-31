@@ -8,7 +8,7 @@ TBD.
 At this current moment, Rake only supports a single mode that involves taking in an input of a function's pre-existing arguments and attempting to reverse the selector hash through generating a random sequence of words using the supplied dictionary as reference. In the future, Rake will support additional means of brute forcing function signatures such as through the use of generating random arguments for the function.
 
 ### Args Mode
-Here is a sample of Rake being used to brute force the signature of the ERC20 standard's ``transferFrom(address,address,uint256)`` method through the use of pre-existing args and a dictionary containing token transfer related terminology:
+Here is a sample of Rake being used to brute force the signature of the ERC20 ``transferFrom(address,address,uint256)`` method through the use of pre-existing args and a dictionary containing token transfer related terminology:
 **CLI Input:**
 ```
 rake -d transfer,to,from,tokens,user -a "address,address,uint256" -m 23b872dd
