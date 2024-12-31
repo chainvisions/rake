@@ -13,13 +13,32 @@ const MAX_ITER_COUNT: u64 = 0xffffffffffff; // TODO: Temporarily until we handle
 
 #[derive(Parser, Debug)]
 struct Args {
-    #[arg(short = 'd', long, value_delimiter = ',')]
+    #[arg(
+        short = 'd',
+        long,
+        value_delimiter = ',',
+        help = "List of known words to use in an attempt to brute force a matching signature"
+    )]
     dictionary: Vec<String>,
-    #[arg(short = 'a', long = "args")]
+    #[arg(
+        short = 'a',
+        long = "args",
+        help = "Arguments of the function being brute forced, used for constructing a valid signature"
+    )]
     func_args: String,
-    #[arg(short = 'm', long, default_value = "00000000")]
+    #[arg(
+        short = 'm',
+        long,
+        default_value = "00000000",
+        help = "Selector to attempt to create a matching signature for"
+    )]
     match_selector: String,
-    #[arg(short = 'o', long, default_value = "false")]
+    #[arg(
+        short = 'o',
+        long,
+        default_value = "false",
+        help = "Enable to submit the matching signature to Openchain after a successful match"
+    )]
     openchain: bool,
 }
 
