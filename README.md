@@ -9,6 +9,7 @@ At this current moment, Rake only supports a single mode that involves taking in
 
 ### Args Mode
 Here is a sample of Rake being used to brute force the signature of the ERC20 ``transferFrom(address,address,uint256)`` method through the use of pre-existing args and a dictionary containing token transfer related terminology:
+
 **CLI Input:**
 ```
 rake -d transfer,to,from,tokens,user -a "address,address,uint256" -m 23b872dd
