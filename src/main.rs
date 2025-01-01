@@ -1,6 +1,9 @@
 use clap::Parser;
+use color_eyre::Result;
+use crossterm::event::{self, Event};
 use heck::ToTitleCase;
 use rand::{seq::IteratorRandom, Rng};
+use ratatui::{DefaultTerminal, Frame};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -69,19 +72,23 @@ struct OpenchainImportParams {
     function: Vec<String>,
 }
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
+    let terminal = ratatui::init();
     let mut args = Args::parse();
     if args.prepositions {
         args.append_prepositions();
     }
-    start_cracking(args);
+    start_cracking(terminal, args);
+    ratatui::restore();
+    Ok(())
 }
 
 fn fact(num: u128) -> u128 {
     (1..=num).product()
 }
 
-fn start_cracking(args: Args) {
+fn start_cracking(mut terminal: DefaultTerminal, args: Args) -> Result<()> {
     // Calculate total possibilities.
     //let num_possible = fact(u128::try_from(args.dictionary.len()).unwrap() * 2_u128);
     // TODO: Handle the above ^ math better
@@ -179,4 +186,6 @@ fn start_cracking(args: Args) {
 
         nonce += 1;
     }
+
+    Ok(())
 }
