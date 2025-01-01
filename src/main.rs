@@ -1,4 +1,5 @@
 use clap::Parser;
+use color_eyre::eyre::Result;
 use rake::{constants::PREPOSITIONS, start_cracking, RakeBuilder};
 
 #[derive(Parser, Debug)]
@@ -50,7 +51,8 @@ impl Args {
     }
 }
 
-fn main() {
+fn main() -> Result<()> {
+    color_eyre::install()?;
     let mut args = Args::parse();
     if args.prepositions {
         args.append_prepositions();
@@ -61,5 +63,6 @@ fn main() {
         .match_selector(args.match_selector)
         .with_openchain(args.openchain)
         .build();
-    start_cracking(flags);
+    start_cracking(flags)?;
+    Ok(())
 }

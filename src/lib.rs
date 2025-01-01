@@ -1,10 +1,14 @@
+use color_eyre::Result;
 use heck::ToTitleCase;
 use rand::{seq::IteratorRandom, Rng};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Arc, RwLock,
+    },
 };
 use tiny_keccak::{Hasher, Keccak};
 
@@ -86,11 +90,17 @@ impl RakeBuilder {
 }
 
 #[derive(Serialize, Deserialize)]
+pub struct FunctionData {
+    pub signature: String,
+    pub selector: String,
+}
+
+#[derive(Serialize, Deserialize)]
 struct OpenchainImportParams {
     function: Vec<String>,
 }
 
-pub fn start_cracking(args: RakeFlags) {
+pub fn start_cracking(args: RakeFlags) -> Result<Receiver<FunctionData>> {
     // Calculate total possibilities.
     //let num_possible = fact(u128::try_from(args.dictionary.len()).unwrap() * 2_u128);
     // TODO: Handle the above ^ math better
@@ -102,6 +112,7 @@ pub fn start_cracking(args: RakeFlags) {
     );
     let hasher = Keccak::v256();
     let sig_list = Arc::new(RwLock::new(HashMap::new()));
+    let (tx, rx): (Sender<FunctionData>, Receiver<FunctionData>) = mpsc::channel();
 
     // Spawn iterators and calculate the hashes.
     (0..MAX_ITER_COUNT).into_par_iter().for_each(|_| {
@@ -155,6 +166,12 @@ pub fn start_cracking(args: RakeFlags) {
             }
             std::process::exit(1);
         }
-        println!("function {} => {}", func_sig, func_selector);
+        tx.send(FunctionData {
+            signature: func_sig,
+            selector: func_selector,
+        })
+        .unwrap();
     });
+
+    Ok(rx)
 }
