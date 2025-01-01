@@ -118,11 +118,16 @@ pub fn start_cracking(args: RakeFlags) -> Result<Receiver<FunctionData>> {
     (0..MAX_ITER_COUNT).into_par_iter().for_each(|_| {
         let sig_map = sig_list.clone();
         let mut rng = rand::thread_rng();
-        let total_words: u128 = rng.gen_range(0..u128::try_from(args.dictionary.len()).unwrap());
-        let word_sample = args
-            .dictionary
-            .iter()
-            .choose_multiple(&mut rng, total_words.try_into().unwrap());
+        let total_words: u128 = rng.gen_range(
+            0..u128::try_from(args.dictionary.len())
+                .expect("Unexpected failure whilst converting dictionary length to uint128"),
+        );
+        let word_sample = args.dictionary.iter().choose_multiple(
+            &mut rng,
+            total_words
+                .try_into()
+                .expect("Unexpected failure whilst converting dictionary total words into usize"),
+        );
         let mut func_name = String::new();
         for (idx, word) in word_sample.iter().enumerate() {
             if idx == 0 {
@@ -161,7 +166,7 @@ pub fn start_cracking(args: RakeFlags) -> Result<Receiver<FunctionData>> {
                     .header("Content-Type", "application/json")
                     .json(&openchain_params)
                     .send()
-                    .unwrap();
+                    .expect("Failed to upload function signature to Openchain.xyz");
                 println!("Signature successfully submitted!");
             }
             std::process::exit(1);
@@ -170,7 +175,7 @@ pub fn start_cracking(args: RakeFlags) -> Result<Receiver<FunctionData>> {
             signature: func_sig,
             selector: func_selector,
         })
-        .unwrap();
+        .expect("Failed to send function data to mpsc receiver");
     });
 
     Ok(rx)
