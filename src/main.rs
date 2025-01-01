@@ -5,7 +5,12 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
-    sync::{Arc, RwLock},
+    sync::{
+        mpsc::{channel, Receiver, Sender},
+        Arc, RwLock,
+    },
+    thread,
+    time::{SystemTime, UNIX_EPOCH},
 };
 use tiny_keccak::{Hasher, Keccak};
 
@@ -88,59 +93,90 @@ fn start_cracking(args: Args) {
     );
     let mut hasher = Keccak::v256();
     let sig_list = Arc::new(RwLock::new(HashMap::new()));
+    let (tx, rx): (Sender<String>, Receiver<String>) = channel();
 
     // Spawn iterators and calculate the hashes.
-    (0..MAX_ITER_COUNT).into_par_iter().for_each(|_| {
-        let sig_map = sig_list.clone();
-        let mut rng = rand::thread_rng();
-        let total_words: u128 = rng.gen_range(0..u128::try_from(args.dictionary.len()).unwrap());
-        let word_sample = args
-            .dictionary
-            .iter()
-            .choose_multiple(&mut rng, total_words.try_into().unwrap());
-        let mut func_name = String::new();
-        for (idx, word) in word_sample.iter().enumerate() {
-            if idx == 0 {
-                func_name.push_str(word.as_str());
-            } else {
-                func_name.push_str(word.to_title_case().as_str());
+    thread::spawn(move || {
+        (0..MAX_ITER_COUNT).into_par_iter().for_each(|_| {
+            let sig_map = sig_list.clone();
+            let mut rng = rand::thread_rng();
+            let total_words: u128 =
+                rng.gen_range(0..u128::try_from(args.dictionary.len()).unwrap());
+            let word_sample = args
+                .dictionary
+                .iter()
+                .choose_multiple(&mut rng, total_words.try_into().unwrap());
+            let mut func_name = String::new();
+            for (idx, word) in word_sample.iter().enumerate() {
+                if idx == 0 {
+                    func_name.push_str(word.as_str());
+                } else {
+                    func_name.push_str(word.to_title_case().as_str());
+                }
             }
-        }
-        let mut hash = hasher.clone();
-        let mut hash_result = [0u8; 32];
-        let func_sig = format!("{}({})", func_name, args.func_args);
-        hash.update(func_sig.as_bytes());
-        hash.finalize(&mut hash_result);
-        let func_selector = hex::encode(hash_result[..4].to_vec());
-        let map = sig_map.read().expect("Poisoned RwLock");
-        if map.contains_key(&func_selector) {
-            return;
-        }
-        drop(map);
-        let mut map = sig_map.write().expect("Poisoned RwLock");
-        map.insert(func_selector.clone(), func_sig.clone());
-        if func_selector == args.match_selector {
-            println!(
-                "Found target function signature for {}: {}",
-                args.match_selector, func_sig
-            );
-            if args.openchain {
-                println!("Submitting to Openchain...");
-                let openchain_params = OpenchainImportParams {
-                    function: vec![func_sig],
-                };
-                let client = reqwest::blocking::Client::new();
-                client
-                    .post("https://api.openchain.xyz/signature-database/v1/import")
-                    .header("accept", "application/json")
-                    .header("Content-Type", "application/json")
-                    .json(&openchain_params)
-                    .send()
-                    .unwrap();
-                println!("Signature successfully submitted!");
+            let mut hash = hasher.clone();
+            let mut hash_result = [0u8; 32];
+            let func_sig = format!("{}({})", func_name, args.func_args);
+            hash.update(func_sig.as_bytes());
+            hash.finalize(&mut hash_result);
+            let func_selector = hex::encode(hash_result[..4].to_vec());
+            let map = sig_map.read().expect("Poisoned RwLock");
+            if map.contains_key(&func_selector) {
+                return;
             }
-            std::process::exit(1);
-        }
-        println!("function {} => {}", func_sig, func_selector);
+            drop(map);
+            let mut map = sig_map.write().expect("Poisoned RwLock");
+            map.insert(func_selector.clone(), func_sig.clone());
+            tx.clone().send(func_sig.clone()).unwrap();
+            if func_selector == args.match_selector {
+                println!(
+                    "Found target function signature for {}: {}",
+                    args.match_selector, func_sig
+                );
+                if args.openchain {
+                    println!("Submitting to Openchain...");
+                    let openchain_params = OpenchainImportParams {
+                        function: vec![func_sig],
+                    };
+                    let client = reqwest::blocking::Client::new();
+                    client
+                        .post("https://api.openchain.xyz/signature-database/v1/import")
+                        .header("accept", "application/json")
+                        .header("Content-Type", "application/json")
+                        .json(&openchain_params)
+                        .send()
+                        .unwrap();
+                    println!("Signature successfully submitted!");
+                }
+                std::process::exit(1);
+            }
+            //println!("function {} => {}", func_sig, func_selector);
+        });
     });
+
+    let mut start_time = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_secs_f64();
+    let mut nonce: u64 = 1;
+    while let Ok(_received) = rx.recv() {
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs_f64();
+        let elapsed = now - start_time;
+        if elapsed > 1.5 {
+            let rate: f64 = nonce as f64 / elapsed;
+            println!("\x1B[2J\x1B[1;1H"); // Clear screen
+            println!("Rate: {:.0} signatures per second", rate);
+            // Measure every 2.5 seconds.
+            start_time = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs_f64();
+            nonce = 1;
+        }
+
+        nonce += 1;
+    }
 }
